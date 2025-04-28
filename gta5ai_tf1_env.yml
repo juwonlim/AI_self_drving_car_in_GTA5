@@ -1,0 +1,18 @@
+channels:
+- defaults
+- conda-forge
+dependencies:
+- python=3.6
+- tensorflow=1.13
+- numpy=1.16
+- opencv=3.4.2
+- h5py
+- scipy
+- scikit-learn
+- pillow
+- matplotlib
+- pywin32
+- pip
+- pip:
+  - darkflow @ git+https://github.com/thtrieu/darkflow.git@master
+name: gta5ai_tf1
