@@ -18,7 +18,7 @@ import tensorflow as tf
 
 
 # 이미지와 레이더 데이터를 학습에 맞게 정형화한 입력 차원 정의
-IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 66, 200, 3
+IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 66, 200, 3 #data_collect.py에서 이미지 사이즈를 무엇으로 하던간에 어차피 66x200사이즈로 전처리됨
 INPUT_SHAPE = (IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS)
 RADAR_HEIGHT, RADAR_WIDTH, RADAR_CHANNELS = 20, 20, 1
 RADAR_SHAPE = (RADAR_HEIGHT, RADAR_WIDTH, RADAR_CHANNELS)
@@ -55,9 +55,9 @@ def preprocess(image):
     Combine all preprocess functions into one
       crop → resize → YUV 변환 순으로 이미지 전처리 수행
     """
-    image = crop(image)
-    image = resize(image)
-    image = rgb2yuv(image)
+    image = crop(image) # 위쪽 하늘, 아래쪽 차량 보닛 제거
+    image = resize(image)  # (320x180 → 200x66) 으로 줄임
+    image = rgb2yuv(image)  # YUV로 변환 (Nvidia 모델 기준)
     return image
 
 

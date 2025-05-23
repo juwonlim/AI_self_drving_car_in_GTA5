@@ -9,24 +9,29 @@ import threading #여러작업동시처리, 즉 ,주행 끊김없이 데이터 �
 import time #프로그램 속도를 제어하거나, 시간 경과를 측정할 때 , ex) sleep(0.015), time()
 import winsound #속도 초과 경고 같은 걸 소리로 알려주기 위해
 import h5py  # HDF5 파일 입출력용
-import tensorflow as tf
-import numpy as np
+import cv2
 
+from data_collection.preprocess import get_preprocessed #내가 chatgpt와 함께 만든 파일 , 이미지 전처리
 from data_collection.navigation_img_process import img_process  # GTA5 화면 캡처 및 처리 (네비게이션 전용)
 
 
-
-### [추가] YOLO 객체 인식 모듈
+### [추가] 차선 인식, YOLO 객체 인식 모듈
+#from object_detection.lane_detect import detect_lane ,삭제된 함수
+from object_detection.lane_detect import draw_lane
 from object_detection.object_detect import yolo_detection
 from data_collection.gamepad_cap import Gamepad  # 게임패드/키보드 입력 감지
 from data_collection.key_cap import key_check  # 키보드 입력 감지
 
-# [추가] 차선인식 모듈
-from data_collection.preprocess import get_preprocessed
-from object_detection.lane_detect import hough_lines, construct_lane
-from object_detection.lane_detect import visualize_lane #gta5칼라 이미지에 차선을 인식시키는 것
+
+
+
+
+
+
+
 
 ### [추가] TensorFlow GPU 메모리 4GB 제한 설정
+import tensorflow as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -58,16 +63,7 @@ else:
     data_file.create_dataset('lanes', (0, 4), dtype='i2', maxshape=(None, 4), chunks=(30, 4))  # 왼쪽/오른쪽 차선 좌표
     data_file.create_dataset('obj_distance', (0, 1), dtype='f2', maxshape=(None, 1), chunks=(30, 1))  # 앞차 거리
 
-
-
-
 # 데이터를 저장하는 함수
-#여기서 data_img(--> training_img)가 비어있으면, lanes,controls 등 아무것도 저장되지 않음
-#그래서 training_img.append(screen)이 중요
-#training_img가 비어 있으면 저장 조건 자체가 무효
-#반면 training_img에 최소 1장이라도 이미지가 들어가 있으면:
-#그 시점의 lanes, controls, metrics, obj_distance 전부가 HDF5로 같이 저장됨
-#왜냐면 save()는 이 5개 리스트를 한꺼번에 .resize() + .append() 하는 구조
 def save(data_img, controls, metrics, lanes, obj_distances):
     with lock:
         # 각 데이터셋 존재 여부 확인 후 없으면 생성
@@ -87,7 +83,7 @@ def save(data_img, controls, metrics, lanes, obj_distances):
             data_file.create_dataset('obj_distance', (0,), maxshape=(None,),
                                      dtype='f', chunks=(30,))
 
-        if data_img: #h5 저장 조건!!!!
+        if data_img:
             data_file["img"].resize((data_file["img"].shape[0] + len(data_img)), axis=0)
             data_file["img"][-len(data_img):] = data_img
             data_file["controls"].resize((data_file["controls"].shape[0] + len(controls)), axis=0)
@@ -135,8 +131,59 @@ def main():
             throttle, steering = gamepad.get_state()  # 게임패드로부터 throttle, steering 읽기
             ignore, screen, speed, direction = img_process("Grand Theft Auto V")  # 화면 캡처 및 차량 속도
             
+
+            #lane_detect.py파일의 73,366줄에서 발생에러, attributeError : 'NoneType' object has no attribute 'shape'를 예방하기 위한 if else문
+            #화면캡쳐 실패시 skip
+            if screen is None:
+                continue # 화면이 없으면 그냥 넘어가고 정상화면이면 차선,객체 검출진행
+                
+       
+            #(lane, stop_line), lane_img = detect_lane() #여기서 lane은  lanes이고 stop_line은 stop_line임. 즉 lane_detect.py에서 construct_lane()의 두값을 그대로 data_collect.py에서 **(lane,stope_line)**으로 받아서 분해해 저장
+            #삭제된 함수값이라서 주석처리하며 원래 이 파일내에서도 (lane, stop_line), lane_img 이거를 받아 쓰는 코드는 없는줄 알았는데 밑에 있네!!!!!
+               
+
+
+
         
+            if screen is not None and lane is not None:
+                debug_crop = screen[280:-130, :, :]
+                debug_view = draw_lane(debug_crop, lane, stop_line, [0, 255, 0], [0, 255, 0])
+
+            # screen에서 잘라낸 유효한 이미지를 넘김
+            debug_crop = screen[280:-130, :, :]
+            #debug_view = draw_lane(debug_crop, lane, stop_line, [0, 255, 0], [0, 255, 0])
+            debug_view = draw_lane(original_img=debug_crop, lane=lane, stop_line=stop_line, left_color=[0, 255, 0], right_color=[0, 255, 0])
+
+
+
+
+            # 시각화용 차선 그리기 (훈련용)
+            screen[280:-130, :, :] = draw_lane(screen[280:-130, :, :], lane, stop_line, [0, 255, 0], [0, 255, 0])
+            cv2.imshow("Lane View", screen)  # 실시간 확인용 ,size는 1280x720
+            cv2.waitKey(1) #여기까지 시각화용 차선 그리기
+
+            #아래3줄, 차선 좌표 포맷가공
+            #left_lane = lane[0] if lane[0] else [0, 0, 0, 0]
+            #right_lane = lane[1] if lane[1] else [0, 0, 0, 0]
+            # 안전한 방식으로 처리
+            #left_lane = lane[0] if isinstance(lane[0], list) and len(lane[0]) == 4 else [0, 0, 0, 0] #TypeError: 'int' object is not subscriptable 해결위해서 수정
+            #right_lane = lane[1] if isinstance(lane[1], list) and len(lane[1]) == 4 else [0, 0, 0, 0]
             
+            #index error: list index out of range해결위해 아래 코드로
+            if isinstance(lane[0], list) and len(lane[0]) == 4:
+                left_lane = lane[0]
+            else:
+                left_lane = [0, 0, 0, 0]
+
+            if isinstance(lane[1], list) and len(lane[1]) == 4:
+                right_lane = lane[1]
+            else:
+                right_lane = [0, 0, 0, 0]
+
+            lanes.append([left_lane[0], left_lane[2], right_lane[0], right_lane[2]])
+
+
+       
 
             ### [추가] YOLO로 앞차 감지
             _, _, obj_distance = yolo_detection(screen, direct=0)
@@ -144,11 +191,9 @@ def main():
                 obj_distance = 1.0  # 기본값: 앞차 없음
             obj_distances.append([obj_distance])
 
-           #이거 아주 중요함 def save함수위에 설명 볼것
-            training_img.append(screen) # 차선인식을 저장, 이 한줄 추가해야 lane값이 h5파일에 저장된다는 !!!!!!
             
-            controls.append([throttle, steering]) #스로틀과 스티어링 저장
-            metrics.append([speed, direction]) #속도와 방향 저장
+            controls.append([throttle, steering])
+            metrics.append([speed, direction])
             session += 1
 
             # 속도 60km/h 초과시 경고음
@@ -159,7 +204,7 @@ def main():
             # 30프레임마다 비동기로 저장
             if len(training_img) % 30 == 0:
                 threading.Thread(target=save, args=(training_img, controls, metrics, lanes, obj_distances)).start()
-                training_img = [] #이게 비어있으면 아래의 lanes만 누적되고 if training_img:조건에 의해 save()함수 내부가 동작안함
+                training_img = []
                 controls = []
                 metrics = []
                 lanes = []
@@ -190,48 +235,6 @@ def main():
                 print('To exit the program press LB or keyboard L.')
                 session = 0
                 time.sleep(0.5)
-
-            # ROI 추출
-            #여기서 부터 차선인식해서 저장
-            #roi = get_preprocessed() #이렇게 했더니 TypeError: only integers, slices (`:`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices 이런 에러 발생
-            roi, original_img = get_preprocessed()
-            
-            if original_img is None or not isinstance(original_img, np.ndarray):
-                print("[ERROR] original_img is not valid.")
-                return  # 또는 continue
-                       
-            
-            cropped_roi = original_img[200:550, :, :]
-
-
-
-            if roi is not None:
-                #cropped_roi = roi[200:550, :, :] #IndexError: too many indices for array ,roi는 아마도 2차원 배열 (예: (height, width))인데, 3차원 배열처럼 [200:550, :, :] 슬라이싱을 했기 때문에 발생한 에러
-                cropped_roi = roi[200:550, :] #roi가 2차원 (HEIGHT,WIDTH 2차원배열, 흑백)일 경우 이렇게 2차원으로 접근, ROI가 3차원이면 주석된 윗줄이 맞음
-                lines = hough_lines(cropped_roi)
-                lane_result = construct_lane(lines)
-
-                 # 차선 좌표 검증
-                if not lane_result["lanes"]:
-                    lanes.append([0, 0, 0, 0])
-                    continue  #return은 main() 전체 종료, continue는 다음 루프로 넘어감
-               
-                
-                left_lane = lane_result["lanes"][0] if lane_result["lanes"][0] else [0, 0, 0, 0]
-                right_lane = lane_result["lanes"][1] if lane_result["lanes"][1] else [0, 0, 0, 0]
-                lanes.append([left_lane[0], left_lane[2], right_lane[0], right_lane[2]])
-                
-                 #차선 시각화 함수 호출은 여기로
-                if lane_result and lane_result["lanes"] and lane_result["stop_line"]: #이 조건 없이 무조건 호출하면 blended가 None이 될 수 있고, resize 시도하면서 프로그램이 down
-                    visualize_lane(lane_result, original_img)
-
-                #visualize_lane(lane_result, original_img) #lane_result["lanes"] 유효성 검증 후에 호출해야 함
-            else:
-                lanes.append([0, 0, 0, 0])  # 실패했을 경우 기본값
-
-               
-
-  
 
         # 녹화 재개
         keys = key_check()

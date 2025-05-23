@@ -74,6 +74,8 @@ def build_model(args):
     img_model = (Conv2D(64, (3, 3), activation='elu'))(img_model)
 
 
+
+
     img_model = (Dropout(args.keep_prob))(img_model)  # 과적합 방지를 위한 Dropout 적용
     img_model = (Flatten())(img_model)  # Fully Connected 레이어에 연결하기 위해 평탄화
     img_model = (Dense(100, activation='elu'))(img_model) # 전결합층 → 특징 조합, 최종 예측값 준비

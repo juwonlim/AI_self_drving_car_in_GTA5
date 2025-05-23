@@ -227,7 +227,7 @@ def drive(model):
 # 메인 실행 함수
 def main():
     # load model
-    location = r"D:\gta5_project\AI_GTA5\training\model-039.h5"
+    location = r"D:\gta5_project\AI_GTA5\training\model-016.h5"
     model = load_model(location) # 학습된 모델 불러오기
     # control a car
     drive(model)  # 자율주행 시작

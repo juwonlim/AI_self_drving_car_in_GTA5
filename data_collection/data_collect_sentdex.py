@@ -1,3 +1,12 @@
+# Sentdex 방식 적용을 위해 수정된 주요 사항 요약
+# 기존 전처리(get_preprocessed) → Sentdex의 preprocess_img 사용
+# from object_detection.preprocess import preprocess_img
+# 기존의 construct_lane, visualize_lane → Sentdex의 draw_lanes 사용
+# from object_detection.lane_detect import draw_lanes
+#차선 인식 코드 전면 교체
+
+
+
 #차선, 앞차 인식 데이터 수집까지 완성된 버전
 #차간거리 유지는 아직임
 
@@ -11,6 +20,7 @@ import winsound #속도 초과 경고 같은 걸 소리로 알려주기 위해
 import h5py  # HDF5 파일 입출력용
 import tensorflow as tf
 import numpy as np
+import cv2
 
 from data_collection.navigation_img_process import img_process  # GTA5 화면 캡처 및 처리 (네비게이션 전용)
 
@@ -22,9 +32,12 @@ from data_collection.gamepad_cap import Gamepad  # 게임패드/키보드 입력
 from data_collection.key_cap import key_check  # 키보드 입력 감지
 
 # [추가] 차선인식 모듈
-from data_collection.preprocess import get_preprocessed
-from object_detection.lane_detect import hough_lines, construct_lane
-from object_detection.lane_detect import visualize_lane #gta5칼라 이미지에 차선을 인식시키는 것
+#from data_collection.preprocess import get_preprocessed
+#from object_detection.lane_detect import hough_lines, construct_lane
+#from object_detection.lane_detect import visualize_lane #gta5칼라 이미지에 차선을 인식시키는 것
+from data_collection.preprocess_sentdex import preprocess_img
+from object_detection.lane_detect_sentdex import draw_lanes
+
 
 ### [추가] TensorFlow GPU 메모리 4GB 제한 설정
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -133,7 +146,9 @@ def main():
            
 
             throttle, steering = gamepad.get_state()  # 게임패드로부터 throttle, steering 읽기
-            ignore, screen, speed, direction = img_process("Grand Theft Auto V")  # 화면 캡처 및 차량 속도
+            #ignore, screen, speed, direction = img_process("Grand Theft Auto V")  # 화면 캡처 및 차량 속도
+            screen, _, speed, direction = img_process("Grand Theft Auto V") #screen이 하단에  roi_img = preprocess_img(screen)에 들어가서 roi와 차선인식을 방해해서 이렇게 수정
+
             
         
             
@@ -192,44 +207,59 @@ def main():
                 time.sleep(0.5)
 
             # ROI 추출
-            #여기서 부터 차선인식해서 저장
-            #roi = get_preprocessed() #이렇게 했더니 TypeError: only integers, slices (`:`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices 이런 에러 발생
-            roi, original_img = get_preprocessed()
-            
-            if original_img is None or not isinstance(original_img, np.ndarray):
-                print("[ERROR] original_img is not valid.")
-                return  # 또는 continue
-                       
-            
-            cropped_roi = original_img[200:550, :, :]
+            # 차선인식부분을 sentdex방식으로 통째로 교체
+            #오류 방지: 원본 이미지가 유효한지 확인
+            #슬라이싱 에러 방지
+            #이렇게 하면 차선 좌표가 잘못 저장되거나 프로그램이 멈추는 문제를 사전에 방지할 수 있습
+            # --- 기존 코드 제거 후 아래 코드 삽입 ---
 
+            roi_img = preprocess_img(screen)
 
+            # 오류 방지: 원본 이미지가 유효한지 확인 (screen 이미지 자체가 잘못되었을 경우: TypeError나 NoneType 슬라이싱 에러 방지)
+            if screen is None or not isinstance(screen, np.ndarray):
+                print("[ERROR] screen (original_img) is not valid.")
+                lanes.append([0, 0, 0, 0])
+                #return  # 또는 continue (루프 안이라면)
+                continue
 
-            if roi is not None:
-                #cropped_roi = roi[200:550, :, :] #IndexError: too many indices for array ,roi는 아마도 2차원 배열 (예: (height, width))인데, 3차원 배열처럼 [200:550, :, :] 슬라이싱을 했기 때문에 발생한 에러
-                cropped_roi = roi[200:550, :] #roi가 2차원 (HEIGHT,WIDTH 2차원배열, 흑백)일 경우 이렇게 2차원으로 접근, ROI가 3차원이면 주석된 윗줄이 맞음
-                lines = hough_lines(cropped_roi)
-                lane_result = construct_lane(lines)
-
-                 # 차선 좌표 검증
-                if not lane_result["lanes"]:
+            if roi_img is not None: #(roi_img가 None일 경우: draw_lanes 호출 자체를 피함)
+                lane_img, lane_coords = draw_lanes(screen.copy(), roi_img) #lane_img가 none일 경우 scr is not a numpy array, neither a scalar에러를 발생시킴
+                
+                
+                if isinstance(lane_img, np.ndarray):
+                    resized = cv2.resize(lane_img, (426, 240))
+                    cv2.imshow("lane_detect", resized)
+                    cv2.waitKey(1)
+                else:
+                    print("[WARN] lane_img is None or not valid. Skipping display.")
                     lanes.append([0, 0, 0, 0])
-                    continue  #return은 main() 전체 종료, continue는 다음 루프로 넘어감
-               
                 
-                left_lane = lane_result["lanes"][0] if lane_result["lanes"][0] else [0, 0, 0, 0]
-                right_lane = lane_result["lanes"][1] if lane_result["lanes"][1] else [0, 0, 0, 0]
-                lanes.append([left_lane[0], left_lane[2], right_lane[0], right_lane[2]])
                 
-                 #차선 시각화 함수 호출은 여기로
-                if lane_result and lane_result["lanes"] and lane_result["stop_line"]: #이 조건 없이 무조건 호출하면 blended가 None이 될 수 있고, resize 시도하면서 프로그램이 down
-                    visualize_lane(lane_result, original_img)
+                ''' 
+                if lane_img is not None: #방어코드 (코드는 맞지만, 실제 draw_lanes()가 내부에서 예외(Exception)를 발생시키고 lane_img를 리턴하지 못하면 이 방어코드도 무력화)
+                     resized = cv2.resize(lane_img, (426, 240)) #lane_img가 none인 상태에서 cv2.resize호출시 에러( TypeError: src is not a numpy array, neither a scalar)
+                     cv2.imshow("lane_detect", resized)
+                     cv2.waitKey(1)
+                else:
+                     print("[WARN] lane_img is None. Skipping display.")
+                     lanes.append([0, 0, 0, 0])  # 추가: 실패 시 기본 좌표도 저장
+                '''
 
-                #visualize_lane(lane_result, original_img) #lane_result["lanes"] 유효성 검증 후에 호출해야 함
+                # lane 좌표 저장 (lane_coords가 없을 때 기본값 저장)
+                if lane_coords:
+                    lanes.append(lane_coords)
+                #else:
+                elif lane_img is not None:
+                    lanes.append([0, 0, 0, 0])  # 실패 시 기본값
+
+                # 차선 시각화 (중복된 부분)
+                #resized = cv2.resize(lane_img, (426, 240))
+                #cv2.imshow("lane_detect", resized)
+                #cv2.waitKey(1)
             else:
-                lanes.append([0, 0, 0, 0])  # 실패했을 경우 기본값
+                lanes.append([0, 0, 0, 0])
 
-               
+            
 
   
 

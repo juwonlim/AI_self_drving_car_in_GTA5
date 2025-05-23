@@ -60,6 +60,8 @@ knnArrows = initKNN('..\data_collection\\resources\\arrows.npy',
 
 # Done by Frannecklp
 # GTA5 창을 캡처해서 numpy 이미지로 반환
+# data_collect.py실행하여 k눌러서 차량주행시에 Saving data and closing the program으로 바로 종료되는 경우
+# chatgpt : img_process.py의 grab_screen() 함수가 캡처 실패 시 None을 반환하고, 이후에 screen을 사용하는 부분에서 문제가 발생해 cv2.imshow() 같은 함수가 빈 프레임(None) 을 받아 종료되는 가능성
 def grab_screen(winName: str = "Grand Theft Auto V"):
     desktop = win32gui.GetDesktopWindow()
 
@@ -150,6 +152,10 @@ def convert_speed(num1, num2, num3):
 # 전체 전처리 루틴
 def img_process(winName: str = "Grand Theft Auto V"):
     screen = grab_screen(winName)
+    if screen is None:
+        print("[ERROR] Screen capture failed.")
+        return None, None, None, None  # 안전하게 4개 반환
+
 
     #여기서부터 영역표시 --> 여기서부터 캡쳐확인용 코드였으나, bfc_allocator(?)라는 memory문제가 발생해서 주석처리함.
     # 시각화용 디버깅 박스 추가 (속도 숫자 영역)
@@ -200,7 +206,8 @@ def img_process(winName: str = "Grand Theft Auto V"):
     direct = int(predict(direct, knnArrows)[0][0])
 
     speed = convert_speed(num1, num2, num3)
-    resized = cv2.resize(screen, (320, 240)) # 학습용 이미지 크기로 변환
+    resized = cv2.resize(screen, (320, 180)) # 학습용 이미지 크기로 변환, 16:9화면 크기, 그런데 실제로 쓰이지는 않고 data_collect.py에서 320x180으로 리사이즈함
+   
 
     return screen, resized, speed, direct
 

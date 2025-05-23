@@ -2,7 +2,7 @@
 #data_collect.py	원본 h5 생성자 (→ 이 파일에서 source_path 가져옴)
 #data_balancing.py	data_collect.py가 만들어낸  원본 h5를 읽고 균형 잡힌 학습 데이터셋 생성
 #train.py	training_data_balanced.h5를 불러와 모델 학습
-#drive.py	base_model.h5 (훈련된 모델) 로딩해서 AI 주행 수행
+#drive.py	model-xxx.h5 (훈련된 모델) 로딩해서 AI 주행 수행
 #data_balancing.py는 네가 직접 플레이할 때는 아무 역할을 하지 않지만, 그때 저장된 데이터를 "훈련하기 좋게 정리"해주는 중요한 전처리 도구
 
 
@@ -11,7 +11,7 @@
 import sys
 import os
 # 현재 스크립트 기준으로 상위 폴더(AI_GTA5 루트)를 경로에 추가
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #이건 현재 파일 기준으로 상위 폴더(=루트) 를 자동으로 찾아주는 방식이야
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #이건 현재 파일 기준으로 상위 폴더(=루트) 를 자동으로 찾아주는 방식
 
 
 import h5py  # HDF5 파일을 읽고 쓰기 위한 라이브러리

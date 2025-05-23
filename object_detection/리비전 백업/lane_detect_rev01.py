@@ -9,9 +9,14 @@ import numpy as np
 # GTA5 게임 화면을 캡처하는 함수 (navigation_img_process.py에서 가져옴)
 from data_collection.preprocess import get_preprocessed
 from data_collection.preprocess import region_of_interest
- #hough_lines함수는 lane_detect.py에서만 쓰이므로 preprocess.py에 포함시키지 않음
 
 
+
+
+
+#processed = get_preprocessed(screen)
+
+#from lane_detect import hough_lines, construct_lane  #본 파일 내부에서 정의된 함수
 
 
 
@@ -20,10 +25,10 @@ from data_collection.preprocess import region_of_interest
 prev_lines = [[], [], []]
 
 
-#roi = get_preprocessed()  # preprocess.py의 get_preprocessed는 이제 roi만 반환함, 그런데 여기 있으면, 프레임이 한 장 고정된 채 반복되게 됨.
+ #hough_lines함수는 lane_detect.py에서만 쓰이므로 preprocess.py에 포함시키지 않음
 
 
-def hough_lines(roi):
+def hough_lines(img):
     """
     `img` should be the output of a Canny transform.
 
@@ -40,15 +45,14 @@ def hough_lines(roi):
     max_line_gap = 10
 
 
-    lines = cv2.HoughLinesP(roi, rho, theta, threshold, np.array([]), minLineLength=min_line_len,
+    lines = cv2.HoughLinesP(img, rho, theta, threshold, np.array([]), minLineLength=min_line_len,
                             maxLineGap=max_line_gap)
     return lines #construct_lane함수로 넘겨줌
 
 
 
 
-#이 함수가 좌표값을 내보냄
-#그래서 data_collect.py에서 호출-저장해야함
+
 def construct_lane(lines):
     """
     NOTE: this is the function you might want to use as a starting point once you want to
@@ -111,7 +115,7 @@ def construct_lane(lines):
                     #continue
 
                 # 거의 수평에 가까운 선 = 정지선 후보
-                if math.fabs(slope) <= 0.05:  # stop line  #정지선 검출하는 코드
+                if math.fabs(slope) <= 0.05:  # stop line
                     if (y1 > 20) and (y2 > 20):
                          # 상단 정지선, 하단 정지선으로 나눠 저장
                         # we need to detect two stop lines (top and bottom)
@@ -211,111 +215,91 @@ def construct_lane(lines):
         elif prev_lines[2]:
             stop_line.append([50, prev_lines[2][0], 750, prev_lines[2][1]])
             prev_lines[2] = []
-    
-    #TypeError: 'int' object is not subscriptable , 이 줄에서 문제가 발생한 이유는 left_lane 또는 right_lane 중 하나가 **리스트가 아니라 int**인 경우
-    print("Left lane (full):", lane[0]) #방어코드 , 왼쪽차선
-    print("Right lane (full):", lane[1]) #방어코드,오른쪽차선
 
-    #return lane, stop_line  #이렇게 lane을 리턴하면 딕셔너리가 아니라 튜플이 되어버림, 그런데 메인함수에서 'lane["lanes"]' 이렇게 호출해서 이건 TypeError: tuple indices must be integers or slices 발생 가능성이 큼.
-    return {"lanes": lane, "stop_line": stop_line} #딕셔너리 타입으로 리턴, 메인함수에서 받을떄도 딕셔너리로 받아야함
+    return lane, stop_line #이걸 detect_lane함수에서 받음
 
 
 
 
 
+def detect_lane():
+   
+    processed = get_preprocessed()
+
+    if processed is None or 'roi' not in processed or processed['roi'] is None or processed['roi'].size == 0: #방어코드
+        print("[ERROR] preprocess failed or returned incomplete data.")
+        return [[], []], []
+
+    if processed is None or 'roi' not in processed:
+        print("[ERROR] preprocess failed or returned incomplete data.")
+        return [[], []], []
+
+    image = processed['roi']
+
+    print("ROI pixel sum:", np.sum(image))  # image는 processed['roi']
 
 
-# 실질적으로 차선/정지선을 실제 이미지 위에 그려주는 함수, 6개의 인자를 받아서 작업함
-# 이것은 차선을 그려주는 시각적 도구일 뿐이지 h5파일에 저장해야할 좌표값이 아님
-#orignal_img는 screen으로 받아오는 gta게임의 컬러 이미지
-def draw_lane(original_img,*args,**kwargs):
-       
-    cropped_img = kwargs.get("cropped_img")
-    if cropped_img is None:
-        print("[ERROR] draw_lane(): cropped_img is None")
-        return None
-    lane = kwargs.get("lane", [[], []])
-    stop_line = kwargs.get("stop_line")
-    left_color = kwargs.get("left_color", [0, 255, 0])
-    right_color = kwargs.get("right_color", [0, 255, 0])
-    thickness = kwargs.get("thickness", 5)
+    # 시각화: MASK
+    if 'mask' in processed:
+        cv2.namedWindow("MASK", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("MASK", 480, 270)
+        cv2.imshow("MASK", processed['mask'])
+        print("Image shape mask:", processed['mask'].shape)
+        cv2.waitKey(1)
 
-    print("draw_lane() called")
-    print("Left lane points:", lane[0])
-    print("Right lane points:", lane[1])
-    
-    
-    
-    # 빈 이미지 생성 (차선 그리기 용도)
-    img = np.zeros((cropped_img.shape[0], cropped_img.shape[1], 3), dtype=np.uint8)
-    
-    if img is None or img.shape[0] == 0 or img.shape[1] == 0:
-        print("[ERROR] Drawn image is invalid.")
-        return cropped_img
+    # 시각화: CANNY
+    if 'canny_edge_lines' in processed:
+        cv2.namedWindow("Canny", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Canny", 480, 270)
+        cv2.imshow("Canny", processed['canny_edge_lines'])
+        print("Image shape Canny:", processed['canny_edge_lines'].shape)
+        cv2.waitKey(1)
 
-    
-    polygon_points = None
-    offset_from_lane_edge = 8 # 시각화용 살짝 오프셋
+    # 시각화: ROI
+    if image is not None:
+        cv2.namedWindow("ROI", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("ROI", 480, 270)
+        cv2.imshow("ROI", image)
+        print("Image shape after ROI:", image.shape)
+        cv2.waitKey(1)
 
-    # draw lane lines
-    # 좌측 차선 그리기
-    if lane[0]:
-        for x1, y1, x2, y2 in [lane[0]]:
-            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), left_color, thickness)
+    if image is None or image.size == 0:
+        print("[ERROR] ROI image is empty.")
+        return [[], []], []
 
-      # 우측 차선 그리기        
-    if lane[1]:
-        for x1, y1, x2, y2 in [lane[1]]:
-            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), right_color, thickness)
+    # 차선 검출
+    lines = hough_lines(image)
+    lanes, stop_line = construct_lane(lines)
 
-    # color the lane
-      # 차선 내부를 색칠
-    if lane[0] and lane[1]:
-        lane_color = [40, 60, 0]  # 어두운 녹색 음영으로 ROI영역 표기, 이것이 보인다면 차선좌표는 검출되고 있음을 의미, 영역이 좌우대칭 아닐시, construct_lane()함수에서 검출된 좌우 차선 좌표 기울기(slope)기준으로 나뉘지 않고 한쪽만 검출되고 있음을 의미
-        for x1, y1, x2, y2 in [lane[0]]:
-            p1 = (x1 + offset_from_lane_edge, y1)
-            p2 = (x2 + offset_from_lane_edge, y2)
+    #return (lanes, stop_line), image, processed["screen"]
+    return (lanes, stop_line), image #세번째 인자는 data_collect.py에서 안씀. 이걸 MAIN으로 넘기나?
 
-        for x1, y1, x2, y2 in [lane[1]]:
-            p3 = (x2 - offset_from_lane_edge, y2)
-            p4 = (x1 - offset_from_lane_edge, y1)
 
-        polygon_points = np.array([[p1, p2, p3, p4]], np.int32)
-        cv2.fillPoly(img, polygon_points, lane_color)
 
-    # draw stop line
-      # 정지선 표시
-    if stop_line:
-        for x1, y1, x2, y2 in stop_line:
-            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), [0, 0, 255], thickness * 3)
-            
-            # 정지선이 차선 안에 위치한다면 다시 마스킹 처리
-            if polygon_points is not None:
-                for px1, py1, px2, py2 in [lane[0]]:
-                    p1 = (px1 - offset_from_lane_edge, py1)
-                    p2 = (px2 - offset_from_lane_edge, py2)
 
-                for px1, py1, px2, py2 in [lane[1]]:
-                    p3 = (px2 + offset_from_lane_edge, py2)
-                    p4 = (px1 + offset_from_lane_edge, py1)
 
-                polygon_points = np.array([[p1, p2, p3, p4]], np.int32)
 
-                img = region_of_interest(img, polygon_points)
-    
-    print("img:", img.shape if img is not None else None)
-    print("cropped_img:", cropped_img.shape if cropped_img is not None else None)
-    #blended = add_images(img, cropped_img) #여기서 add_image함수 호출하여 작업후 blended에 담음
-    blended = add_images(img=img, cropped_img=original_img)
-    
-    #blended가 none인지 확인 (창이 안열리는 경우 디버그위해)
-    if blended is None:
-        print("[ERROR] blended is None")
-    else:
-        print("[INFO] blended image shape:", blended.shape)
 
-    return blended
+def main(screen):
+    while True:
+        #screen = grab_screen()
+        #if screen is None or screen.size == 0:
+            #print("[ERROR] grab_screen failed.")
+            #continue
 
+        (lane, stop_line), roi_image = detect_lane()
+        if roi_image is None or roi_image.size == 0:
+            print("[ERROR] ROI image is invalid.")
+            continue
+
+        # draw_lane은 roi_image가 아닌 원본 screen에 덮어쓰기
+        screen[280:-130, :, :] = draw_lane(screen[280:-130, :, :], lane, stop_line, [0, 255, 0], [0, 255, 0])
+
+        cv2.imshow("Frame", screen)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
+            cv2.destroyAllWindows()
+            break
 
 
 
@@ -323,9 +307,7 @@ def draw_lane(original_img,*args,**kwargs):
 
 # Python 3 has support for cool math symbols.
 # 이미지 두 장을 합성해서 반환 (weighted sum)
-def add_images(*args, **kwargs):
-    img = kwargs.get("img")
-    initial_img = kwargs.get("cropped_img")
+def add_images(img, initial_img):
     """
     `img` is the output of the hough_lines(), An image with lines drawn on it.
     Should be a blank image (all black) with lines drawn on it.
@@ -361,88 +343,91 @@ def add_images(*args, **kwargs):
         
     print("initial_img shape:", initial_img.shape)
     print("img shape:", img.shape)
-    img = cv2.add(initial_img, img)
-    return img #이게 다시 draw_lane이 받아감
+    return cv2.add(initial_img, img)
 
 
 
 
-#lane_result = construct_lane(lines)
-def visualize_lane(lane_result, original_img):
-    crop_top = 200
-    crop_bottom = 550
-    cropped = original_img[crop_top:crop_bottom, :, :]
 
-    blended = draw_lane(
-        original_img,
-        #original_img=cropped,
-        cropped_img=cropped,
-        lane=lane_result["lanes"],
-        stop_line=lane_result["stop_line"],
-        left_color=[0, 255, 0],
-        right_color=[0, 255, 0],
-        thickness=5
-    )
-
-    resized = cv2.resize(blended, (426, 240))
-    cv2.imshow("Lane_Detectin_with_GTA5_GAME_Window", resized)
-    cv2.waitKey(1)
-
-
-
-
-#쓸모없는 main함수
-""" 
-def main():
-    crop_top = 200 #차선이 있는 Y축 좌표 위쪽
-    crop_bottom = 550 #마찬가지로 차선이 들어오는 y축 좌표 아래
-  
+# 차선/정지선을 실제 이미지 위에 그려주는 함수
+def draw_lane(original_img, lane, stop_line, left_color, right_color, thickness=5):
+    print("draw_lane() called")
+    print("Left lane points:", lane[0])
+    print("Right lane points:", lane[1])
     
-   
-    while True:
-         
-         #roi = get_preprocessed()
-         roi, original_img = get_preprocessed() #GTA5의 칼라이미지를 받아옴
-         
-         if roi is None:
-                   continue
-         #cropped_roi = roi[crop_top:crop_bottom, :, :] #여기에 두어야 화면 갱신된다는
-         cropped = original_img[crop_top:crop_bottom, :, :]  # 컬러 이미지 CROP함
-         lines = hough_lines(cropped) #이것도 여기 있어야 매 프레임마다 새로운 차선 감지
-         #lanes, stop_line = construct_lane(lines) #이건 튜플형식을 받아올때
-         lane_result = construct_lane(lines) #딕셔너리 값을 받아올때
-         
-         
-      
-        
-         if not lane_result["lanes"]:
-            continue    
-         if not lane_result["stop_line"]:
-            continue
-
-       
-         blended = draw_lane(
-            #cropped_img=cropped_roi,
-            original_img = cropped,
-            #lane=lanes["lanes"], #이건 튜플형식일떄
-            lane = lane_result["lanes"], #이게 딕셔너리 일때
-            #stop_line=stop_line["stop_line"], #이것도 튜플형식 받기
-            stop_line = lane_result["stop_line"], #딕셔너리 형식으로 받기
-            left_color=[0, 255, 0],
-            right_color=[0, 255, 0],
-            thickness = 5 #누락시켰던 값 추가
-        )
-         #print("blended shape:", blended.shape if blended is not None else None)
-         #print("resized shape:", resized.shape if resized is not None else None)
-
-        
-       
-"""
     
-  
+    
+    # 빈 이미지 생성 (차선 그리기 용도)
+    img = np.zeros((original_img.shape[0], original_img.shape[1], 3), dtype=np.uint8)
+    
+    if img is None or img.shape[0] == 0 or img.shape[1] == 0:
+        print("[ERROR] Drawn image is invalid.")
+        return original_img
+
+    
+    polygon_points = None
+    offset_from_lane_edge = 8 # 시각화용 살짝 오프셋
+
+    # draw lane lines
+    # 좌측 차선 그리기
+    if lane[0]:
+        for x1, y1, x2, y2 in [lane[0]]:
+            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), left_color, thickness)
+
+      # 우측 차선 그리기        
+    if lane[1]:
+        for x1, y1, x2, y2 in [lane[1]]:
+            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), right_color, thickness)
+
+    # color the lane
+      # 차선 내부를 색칠
+    if lane[0] and lane[1]:
+        lane_color = [40, 60, 0]  # 어두운 녹색 음영
+        for x1, y1, x2, y2 in [lane[0]]:
+            p1 = (x1 + offset_from_lane_edge, y1)
+            p2 = (x2 + offset_from_lane_edge, y2)
+
+        for x1, y1, x2, y2 in [lane[1]]:
+            p3 = (x2 - offset_from_lane_edge, y2)
+            p4 = (x1 - offset_from_lane_edge, y1)
+
+        polygon_points = np.array([[p1, p2, p3, p4]], np.int32)
+        cv2.fillPoly(img, polygon_points, lane_color)
+
+    # draw stop line
+      # 정지선 표시
+    if stop_line:
+        for x1, y1, x2, y2 in stop_line:
+            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), [0, 0, 255], thickness * 3)
+            
+            # 정지선이 차선 안에 위치한다면 다시 마스킹 처리
+            if polygon_points is not None:
+                for px1, py1, px2, py2 in [lane[0]]:
+                    p1 = (px1 - offset_from_lane_edge, py1)
+                    p2 = (px2 - offset_from_lane_edge, py2)
+
+                for px1, py1, px2, py2 in [lane[1]]:
+                    p3 = (px2 + offset_from_lane_edge, py2)
+                    p4 = (px1 + offset_from_lane_edge, py1)
+
+                polygon_points = np.array([[p1, p2, p3, p4]], np.int32)
+
+                img = region_of_interest(img, polygon_points)
+    
+    print("img:", img.shape if img is not None else None)
+    print("original_img:", original_img.shape if original_img is not None else None)
+
+    return add_images(img, original_img)
 
 
-#메인함수 호출안함
-#if __name__ == '__main__':
-    #main() 
 
+
+
+if __name__ == '__main__':
+    main()
+
+#draw_lane()	차선, 정지선, 차선 내부 색상 시각화
+#detect_lane()	전체 파이프라인 묶음 (전처리 → 허프라인 → 차선 추출)
+#main()	테스트용, 실제 프로젝트에선 미사용
+#draw_lane()는 실제 시각적 피드백 제공 → drive.py에서 사용됨
+#############여기까지 #3

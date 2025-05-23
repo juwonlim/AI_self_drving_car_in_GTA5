@@ -271,7 +271,7 @@ def draw_lane(original_img,*args,**kwargs):
     # color the lane
       # 차선 내부를 색칠
     if lane[0] and lane[1]:
-        lane_color = [40, 60, 0]  # 어두운 녹색 음영으로 ROI영역 표기, 이것이 보인다면 차선좌표는 검출되고 있음을 의미, 영역이 좌우대칭 아닐시, construct_lane()함수에서 검출된 좌우 차선 좌표 기울기(slope)기준으로 나뉘지 않고 한쪽만 검출되고 있음을 의미
+        lane_color = [40, 60, 0]  # 어두운 녹색 음영
         for x1, y1, x2, y2 in [lane[0]]:
             p1 = (x1 + offset_from_lane_edge, y1)
             p2 = (x2 + offset_from_lane_edge, y2)
@@ -317,7 +317,8 @@ def draw_lane(original_img,*args,**kwargs):
     return blended
 
 
-
+def opencvimshow():
+    roi, original_img = get_preprocessed() #GTA5의 칼라이미지를 받아옴
 
 
 
@@ -367,32 +368,8 @@ def add_images(*args, **kwargs):
 
 
 
-#lane_result = construct_lane(lines)
-def visualize_lane(lane_result, original_img):
-    crop_top = 200
-    crop_bottom = 550
-    cropped = original_img[crop_top:crop_bottom, :, :]
-
-    blended = draw_lane(
-        original_img,
-        #original_img=cropped,
-        cropped_img=cropped,
-        lane=lane_result["lanes"],
-        stop_line=lane_result["stop_line"],
-        left_color=[0, 255, 0],
-        right_color=[0, 255, 0],
-        thickness=5
-    )
-
-    resized = cv2.resize(blended, (426, 240))
-    cv2.imshow("Lane_Detectin_with_GTA5_GAME_Window", resized)
-    cv2.waitKey(1)
 
 
-
-
-#쓸모없는 main함수
-""" 
 def main():
     crop_top = 200 #차선이 있는 Y축 좌표 위쪽
     crop_bottom = 550 #마찬가지로 차선이 들어오는 y축 좌표 아래
@@ -432,17 +409,21 @@ def main():
             right_color=[0, 255, 0],
             thickness = 5 #누락시켰던 값 추가
         )
-         #print("blended shape:", blended.shape if blended is not None else None)
-         #print("resized shape:", resized.shape if resized is not None else None)
+         print("blended shape:", blended.shape if blended is not None else None)
+         print("resized shape:", resized.shape if resized is not None else None)
 
         
+         resized = cv2.resize(blended, (426, 240))
+         #cv2.namedWindow("차선인식", cv2.WINDOW_NORMAL) #창 생성여부 강제
+         cv2.imshow("차선인식", resized)
        
-"""
+         if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
     
-  
+    #cv2.destroyAllWindows()
 
 
-#메인함수 호출안함
-#if __name__ == '__main__':
-    #main() 
+
+if __name__ == '__main__':
+    main()
 

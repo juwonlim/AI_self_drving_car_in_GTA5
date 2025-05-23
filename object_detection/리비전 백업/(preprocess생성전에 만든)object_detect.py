@@ -2,20 +2,16 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) #이건 현재 파일 기준으로 상위 폴더(=루트) 를 자동으로 찾아주는 방식
 
+
 import cv2
 import numpy as np
 from darkflow.net.build import TFNet # YOLOv2를 불러오는 다크플로우 패키지
 from shapely.geometry import box, Polygon # 물체 충돌 계산에 사용될 사각형(폴리곤) 클래스
+
+from data_collection.img_process import grab_screen # GTA5 화면 캡처
 from object_detection.direction import Direct # 주행 방향 enum
 
 
-
-
-
-#roi = Polygon([(100, 440), (350, 250), (450, 250), (700, 440)]) #preprocess.py에서 받아온 roi를 안쓰고 여기서 다시 정의하는건데 1280x720이랑 안맞음
-
-#내가 다시 정의한 것, 직접 그려서 확인해 본 것
-roi = Polygon([(0, 0),(0, 550),(1280, 550),(1280, 0)])
 
 
 # set YOLO options
@@ -31,13 +27,13 @@ options = {
     'model': os.path.join(os.path.dirname(__file__), 'yolov2.cfg'),
     'load': os.path.join(os.path.dirname(__file__), 'yolov2.weights'),
     'threshold': 0.3,
-    'gpu': 0.2, #GPU점유낮춰서 도서관 사용시 소음감소
+    'gpu': 0.5,
     'labels': os.path.join(os.path.dirname(__file__), 'labels.txt')
 }
 
 
-tfnet = TFNet(options) # YOLO 모델 초기화
 
+tfnet = TFNet(options) # YOLO 모델 초기화
 
 # capture = cv2.VideoCapture('gta2.mp4')
 # 랜덤 색상 / 검은색 셋
@@ -138,8 +134,7 @@ def distance_to_car(frame, top_left, bottom_right):
     # cv2.imshow("precess_img", process_img)
 
     # roi = Polygon([(15, 472), (330, 321), (470, 321), (796, 495)])
-    #roi = Polygon([(100, 470), (350, 280), (450, 280), (700, 470)]) # ROI: 우리가 관심 있는 충돌 영역 정의 (사다리꼴)
-    #roi = Polygon([(100, 440), (350, 250), (450, 250), (700, 440)]) #preprocess.py에서 받아온 1280x450사이즈에 맞춰서 수정
+    roi = Polygon([(100, 470), (350, 280), (450, 280), (700, 470)]) # ROI: 우리가 관심 있는 충돌 영역 정의 (사다리꼴)
     car = box(top_left[0], top_left[1], bottom_right[0], bottom_right[1])  # 차량이 포함된 사각형 정의 (YOLO bbox)
 
 
@@ -167,8 +162,7 @@ def distance_to_car(frame, top_left, bottom_right):
 def distance_to_human(frame, top_left, bottom_right):
     distance = None
 
-    #roi = Polygon([(90, 470), (350, 280), (450, 280), (700, 470)])
-    #roi = Polygon([(100, 440), (350, 250), (450, 250), (700, 440)])  #preprocess.py에서 받아온 1280x450사이즈에 맞춰서 수정
+    roi = Polygon([(90, 470), (350, 280), (450, 280), (700, 470)])
     person = box(top_left[0], top_left[1], bottom_right[0], bottom_right[1])
 
     if roi.intersects(person):
@@ -187,10 +181,6 @@ def distance_to_human(frame, top_left, bottom_right):
 
 # YOLO로 객체 감지 + 각 객체에 대한 후처리 (신호등, 차량, 사람)
 def yolo_detection(screen, direct):
-    
-    #processed = get_preprocessed(screen)  # preprocess.py로부터 이미지 전체 받아옴
-    #screen = processed["resized"]  # YOLO에 적용할 적절한 크기의 전처리 이미지 선택
-    
     # find objects on a frame by using YOLO
     results = tfnet.return_predict(screen[:-130, :, :]) # 하단 자르기
     # create a list of detected traffic lights (might be several on a frame)
@@ -247,12 +237,8 @@ def yolo_detection(screen, direct):
 
 # 디버깅용 실행 루프
 def main():
-    #global tfnet #바깥의 yolo_detection함수에서도 접근가능하게
-   
-    
     while True:
-        #screen = grab_screen()
-        #screen = capture_screen()  # 이거는 모니터 전체 캡쳐라고 chatgpt가 말하지만 워낙 구라쟁이라서 믿을수가
+        screen = grab_screen()
         screen, color_detected, obj_distance = yolo_detection(screen, 0)
 
         if color_detected:
