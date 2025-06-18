@@ -1,0 +1,4 @@
+2025-06-16T19:58:59.252816+0900 INFO Start reading image and preprocessing
+2025-06-16T19:58:59.367574+0900 INFO Image load complete, cost time: 0.11280s
+2025-06-16T19:59:12.532659+0900 INFO Single imgae inference cost time: 0.01163s
+2025-06-16T19:59:12.535649+0900 ERROR Found array with 0 sample(s) (shape=(0, 4)) while a minimum of 1 is required by StandardScaler.

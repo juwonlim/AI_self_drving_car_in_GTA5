@@ -147,12 +147,12 @@ def img_process(winName: str = "Grand Theft Auto V"):
     # one field for direction arrows
     # Ji Hyun's computer
       # 👇 방향 화살표 인식 영역 (좌하단 또는 센터 왼쪽)
-    direct = preprocess(screen[561:570, 18:28, :]).reshape(-1, 90).astype(np.float32)  #screen[567:575, 683:702, :] ← 이건 이미지에서의 좌표 슬라이싱이 맞고, 이 좌표가 GTA5 화면 상에서 속도계 숫자 영역에 정확히 대응하는지는, 실제 해보기 전까진 확실하게 모른다.
+    #direct = preprocess(screen[561:570, 18:28, :]).reshape(-1, 90).astype(np.float32)  #screen[567:575, 683:702, :] ← 이건 이미지에서의 좌표 슬라이싱이 맞고, 이 좌표가 GTA5 화면 상에서 속도계 숫자 영역에 정확히 대응하는지는, 실제 해보기 전까진 확실하게 모른다.
 
 
     # Rustam's computer
     # direct = preprocess(screen[567:576, 18:28, :]).reshape(-1, 90).astype(np.float32)
-    direct = int(predict(direct, knnArrows)[0][0])
+    #direct = int(predict(direct, knnArrows)[0][0])
 
     speed = convert_speed(num1, num2, num3)
     resized = cv2.resize(screen, (320, 180)) # 학습용 이미지 크기로 변환, 16:9화면 크기, 그런데 실제로 쓰이지는 않고 data_collect.py에서 320x180으로 리사이즈함

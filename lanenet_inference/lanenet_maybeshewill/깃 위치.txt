@@ -1,0 +1,5 @@
+https://github.com/MaybeShewill-CV/lanenet-lane-detection?tab=readme-ov-file
+깃 위치
+
+https://www.dropbox.com/scl/fo/qv3qc40oinsc6u2ltxziu/ANyCo6Ue_0qp5-jF2w0N2hQ?rlkey=ry76zjxb4mqeav19bckx0rhiq&e=1&dl=0
+드롭박스 프리트레인 모델 위치

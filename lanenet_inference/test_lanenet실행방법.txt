@@ -1,0 +1,28 @@
+E:\gta5_project\AI_GTA5\lanenet_inference 이 위치에서 아나콘다 cmd창을 이용해 설행해야함
+
+
+한줄로 실행
+python tools/test_lanenet.py --image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/1.jpg --weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_maybeshewil/tusimple_lanenet.ckpt --with_lane_fit false
+이건 maybeshewill의 dropbox
+경로잘못되어 있음. 실행하면 아무결과 안나옴
+                                                                                                                                                                                       
+python tools/test_lanenet.py --weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_maybeshewill/tusimple_lanenet.ckpt --image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/1.jpg  --with_lane_fit false
+이걸로 실행해볼 것
+
+
+python tools/test_lanenet.py --image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/2.jpg --weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_maybeshewill/tusimple_lanenet.ckpt --with_lane_fit true
+
+
+python tools/test_lanenet.py --image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/1.jpg --weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_kaggle/tusimple_lanenet.ckpt --with_lane_fit false
+이건 kaggle에서 받은 파일
+
+
+
+
+여러줄로 실행
+python tools/test_lanenet.py ^
+--image_path E:/gta5_project/AI_GTA5/lanenet_inference/data/tusimple_test_image/1.jpg ^
+--weights_path E:/gta5_project/AI_GTA5/lanenet_inference/lanenet_maybeshewil/tusimple_lanenet.ckpt ^
+--with_lane_fit false
+
+

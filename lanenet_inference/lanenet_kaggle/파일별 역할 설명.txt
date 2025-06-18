@@ -1,0 +1,22 @@
+📁 파일별 역할 설명
+파일명	역할/설명
+checkpoint	TensorFlow 체크포인트 관리 파일. 현재 checkpoint로 지정된 weight의 이름을 저장.
+loguru-0.6.0-py3-none-any.whl	Python의 로그 라이브러리 loguru의 패키지 파일. (LANENet 실행 자체에는 불필요)
+tusimple_lanenet.ckpt	weight를 로드할 때 사용되는 기본 경로 이름 (실제 weight 내용은 아래 data/index/meta에 있음).
+tusimple_lanenet.ckpt.data-00000-of-00001	실제 weight 데이터를 담고 있는 파일 (매우 중요).
+tusimple_lanenet.ckpt.index	weight 데이터를 로드하기 위한 인덱스 파일. (데이터 오프셋 정보)
+tusimple_lanenet.ckpt.meta	TensorFlow 그래프(모델 구조 포함) 정보를 담고 있음.
+tusimple_lanenet.yaml	LANENet의 하이퍼파라미터나 config 정보를 담은 YAML 파일. (예: 입력 크기, 학습 설정 등)
+
+🔍 추가 정리
+실제 weight는 → .data-00000-of-00001
+
+로드할 때 필요 정보는 → .index와 .meta
+
+모델 구조와 설정 → .meta + .yaml
+
+TensorFlow가 관리할 때 → checkpoint도 함께 필요
+
+✅ 정리: LANENet 추론 시에는 .ckpt, .data, .index, .meta, .yaml, 그리고 checkpoint가 다 필요해.
+나머지 (loguru)는 로그 라이브러리이고, 실행에는 직접 연관되지 않아.
+
